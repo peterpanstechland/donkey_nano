@@ -1,6 +1,6 @@
 """
 actuators.py
-Classes to control the motors and servos. These classes 
+Classes to control the motors and servos. These classes
 are wrapped in a mixer class before being used in the drive loop.
 """
 
@@ -8,10 +8,10 @@ import time
 
 import donkeycar as dk
 
-        
+
 class PCA9685:
-    ''' 
-    PWM motor controler using PCA9685 boards. 
+    '''
+    PWM motor controler using PCA9685 boards.
     This is used for most RC Cars
     '''
     def __init__(self, channel, address=0x40, frequency=60, busnum=None, init_delay=0.1):
@@ -67,7 +67,7 @@ class SerialDevice:
     def __init__(self):
         import serial
         # Initialise the Robo HAT using default address (0x49)
-        self.pwm = serial.Serial('/dev/ttyS0', 115200, timeout=1)
+        self.pwm = serial.Serial('/dev/ttyTHS1', 115200, timeout=1)
 
     def set_pulse(self, throttle, steering):
         try:
@@ -79,7 +79,7 @@ class SerialDevice:
                 output_throttle = dk.utils.map_range(throttle,
                                            -1, 0,
                                            1000, 1500)
-            
+
             if steering > 0:
                 output_steering = dk.utils.map_range(steering,
                                            0, 1.0,
@@ -88,7 +88,7 @@ class SerialDevice:
                 output_steering = dk.utils.map_range(steering,
                                            -1, 0,
                                            1000, 1500)
-            
+
             packet = "{0},{1}".format(str(output_throttle).zfill(4), str(output_steering).zfill(4))
             self.pwm.write(b"%d, %d\r" % (eval(packet)))
             print("%d, %d\r" % (eval(packet)))
@@ -131,8 +131,8 @@ class PiGPIO_PWM():
 
 
 class JHat:
-    ''' 
-    PWM motor controler using Teensy emulating PCA9685. 
+    '''
+    PWM motor controler using Teensy emulating PCA9685.
     '''
     def __init__(self, channel, address=0x40, frequency=60, busnum=None):
         print("Firing up the Hat")
@@ -152,21 +152,21 @@ class JHat:
 
         #we install our own write that is more efficient use of interrupts
         self.pwm.set_pwm = self.set_pwm
-        
+
     def set_pulse(self, pulse):
-        self.set_pwm(self.channel, 0, pulse) 
+        self.set_pwm(self.channel, 0, pulse)
 
     def set_pwm(self, channel, on, off):
         #print("pulse", off)
         """Sets a single PWM channel."""
         self.pwm._device.writeList(self.register, [off & 0xFF, off >> 8])
-        
+
     def run(self, pulse):
         self.set_pulse(pulse)
 
 class JHatReader:
-    ''' 
-    Read RC controls from teensy 
+    '''
+    Read RC controls from teensy
     '''
     def __init__(self, channel, address=0x40, frequency=60, busnum=None):
         import Adafruit_PCA9685
@@ -182,7 +182,7 @@ class JHatReader:
     def read_pwm(self):
         '''
         send read requests via i2c bus to Teensy to get
-        pwm control values from last RC input  
+        pwm control values from last RC input
         '''
         h1 = self.pwm._device.readU8(self.register)
         #first byte of header must be 100, otherwize we might be reading
@@ -190,14 +190,14 @@ class JHatReader:
         while h1 != 100:
             print("skipping to start of header")
             h1 = self.pwm._device.readU8(self.register)
-        
+
         h2 = self.pwm._device.readU8(self.register)
         #h2 ignored now
 
         val_a = self.pwm._device.readU8(self.register)
         val_b = self.pwm._device.readU8(self.register)
         self.steering = (val_b << 8) + val_a
-        
+
         val_c = self.pwm._device.readU8(self.register)
         val_d = self.pwm._device.readU8(self.register)
         self.throttle = (val_d << 8) + val_c
@@ -205,14 +205,14 @@ class JHatReader:
         #scale the values from -1 to 1
         self.steering = (((float)(self.steering)) - 1500.0) / 500.0  + 0.158
         self.throttle = (((float)(self.throttle)) - 1500.0) / 500.0  + 0.136
-        
+
         #print(self.steering, self.throttle)
 
     def update(self):
         while(self.running):
             self.read_pwm()
             time.sleep(0.015)
-        
+
     def run_threaded(self):
         return self.steering, self.throttle
 
@@ -225,7 +225,7 @@ class PWMSteering:
     """
     Wrapper over a PWM motor cotnroller to convert angles to PWM pulses.
     """
-    LEFT_ANGLE = -1 
+    LEFT_ANGLE = -1
     RIGHT_ANGLE = 1
 
     def __init__(self, controller=None,
@@ -267,7 +267,7 @@ class PWMThrottle:
         self.max_pulse = max_pulse
         self.min_pulse = min_pulse
         self.zero_pulse = zero_pulse
-        
+
         #send zero pulse to calibrate ESC
         print("Init ESC")
         self.controller.set_pulse(self.max_pulse)
@@ -281,41 +281,41 @@ class PWMThrottle:
     def run(self, throttle):
         if throttle > 0:
             pulse = dk.utils.map_range(throttle,
-                                    0, self.MAX_THROTTLE, 
+                                    0, self.MAX_THROTTLE,
                                     self.zero_pulse, self.max_pulse)
         else:
             pulse = dk.utils.map_range(throttle,
-                                    self.MIN_THROTTLE, 0, 
+                                    self.MIN_THROTTLE, 0,
                                     self.min_pulse, self.zero_pulse)
 
         self.controller.set_pulse(pulse)
-        
+
     def shutdown(self):
         self.run(0) #stop vehicle
 
 
 
 class Adafruit_DCMotor_Hat:
-    ''' 
-    Adafruit DC Motor Controller 
+    '''
+    Adafruit DC Motor Controller
     Used for each motor on a differential drive car.
     '''
     def __init__(self, motor_num):
         from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_DCMotor
         import atexit
-        
+
         self.FORWARD = Adafruit_MotorHAT.FORWARD
         self.BACKWARD = Adafruit_MotorHAT.BACKWARD
-        self.mh = Adafruit_MotorHAT(addr=0x60) 
-        
+        self.mh = Adafruit_MotorHAT(addr=0x60)
+
         self.motor = self.mh.getMotor(motor_num)
         self.motor_num = motor_num
-        
+
         atexit.register(self.turn_off_motors)
         self.speed = 0
         self.throttle = 0
-    
-        
+
+
     def run(self, speed):
         '''
         Update the speed of the motor where 1 is full forward and
@@ -323,17 +323,17 @@ class Adafruit_DCMotor_Hat:
         '''
         if speed > 1 or speed < -1:
             raise ValueError( "Speed must be between 1(forward) and -1(reverse)")
-        
+
         self.speed = speed
         self.throttle = int(dk.utils.map_range(abs(speed), -1, 1, -255, 255))
-        
-        if speed > 0:            
+
+        if speed > 0:
             self.motor.run(self.FORWARD)
         else:
             self.motor.run(self.BACKWARD)
-            
+
         self.motor.setSpeed(self.throttle)
-        
+
 
     def shutdown(self):
         self.mh.getMotor(self.motor_num).run(Adafruit_MotorHAT.RELEASE)
@@ -534,7 +534,7 @@ class L298N_HBridge_DC_Motor(object):
         GPIO.setup(self.pin_forward, GPIO.OUT)
         GPIO.setup(self.pin_backward, GPIO.OUT)
         GPIO.setup(self.pwm_pin, GPIO.OUT)
-        
+
         self.pwm = GPIO.PWM(self.pwm_pin, freq)
         self.pwm.start(0)
 
@@ -546,11 +546,11 @@ class L298N_HBridge_DC_Motor(object):
         '''
         if speed > 1 or speed < -1:
             raise ValueError( "Speed must be between 1(forward) and -1(reverse)")
-        
+
         self.speed = speed
         max_duty = 90 #I've read 90 is a good max
         self.throttle = int(dk.utils.map_range(speed, -1, 1, -max_duty, max_duty))
-        
+
         if self.throttle > 0:
             self.pwm.ChangeDutyCycle(self.throttle)
             GPIO.output(self.pin_forward, GPIO.HIGH)
@@ -576,13 +576,13 @@ class TwoWheelSteeringThrottle(object):
     def run(self, throttle, steering):
         if throttle > 1 or throttle < -1:
             raise ValueError( "throttle must be between 1(forward) and -1(reverse)")
- 
+
         if steering > 1 or steering < -1:
             raise ValueError( "steering must be between 1(right) and -1(left)")
 
         left_motor_speed = throttle
         right_motor_speed = throttle
- 
+
         if steering < 0:
             left_motor_speed *= (1.0 - (-steering))
         elif steering > 0:
@@ -610,11 +610,11 @@ class Mini_HBridge_DC_Motor_PWM(object):
         self.pin_forward = pin_forward
         self.pin_backward = pin_backward
         self.max_duty = max_duty
-        
+
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(self.pin_forward, GPIO.OUT)
         GPIO.setup(self.pin_backward, GPIO.OUT)
-        
+
         self.pwm_f = GPIO.PWM(self.pin_forward, freq)
         self.pwm_f.start(0)
         self.pwm_b = GPIO.PWM(self.pin_backward, freq)
@@ -628,13 +628,13 @@ class Mini_HBridge_DC_Motor_PWM(object):
         '''
         if speed is None:
             return
-        
+
         if speed > 1 or speed < -1:
             raise ValueError( "Speed must be between 1(forward) and -1(reverse)")
-        
+
         self.speed = speed
         self.throttle = int(dk.utils.map_range(speed, -1, 1, -self.max_duty, self.max_duty))
-        
+
         if self.throttle > 0:
             self.pwm_f.ChangeDutyCycle(self.throttle)
             self.pwm_b.ChangeDutyCycle(0)
@@ -655,8 +655,8 @@ class Mini_HBridge_DC_Motor_PWM(object):
         GPIO.cleanup()
 
 def map_frange(self, x, X_min, X_max, Y_min, Y_max):
-    ''' 
-    Linear mapping between two ranges of values 
+    '''
+    Linear mapping between two ranges of values
     '''
     X_range = X_max - X_min
     Y_range = Y_max - Y_min
@@ -665,7 +665,7 @@ def map_frange(self, x, X_min, X_max, Y_min, Y_max):
     y = ((x-X_min) / XY_ratio + Y_min)
 
     return y
-    
+
 class RPi_GPIO_Servo(object):
     '''
     Servo controlled from the gpio pins on Rpi
@@ -675,7 +675,7 @@ class RPi_GPIO_Servo(object):
         self.pin = pin
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(self.pin, GPIO.OUT)
-        
+
         self.pwm = GPIO.PWM(self.pin, freq)
         self.pwm.start(0)
         self.min = min
@@ -736,4 +736,3 @@ class ServoBlaster(object):
     def shutdown(self):
         self.run((self.max + self.min) / 2)
         self.servoblaster.close()
-
